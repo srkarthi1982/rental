@@ -69,6 +69,19 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.app-field-stack {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.app-field-error {
+  color: var(--av-danger, #b42318);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
 @media (max-width: 640px) {
   .av-drawer-footer-actions {
     flex-direction: column-reverse;

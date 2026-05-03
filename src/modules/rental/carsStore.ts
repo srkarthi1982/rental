@@ -28,6 +28,12 @@ type RentalCarsState = {
   loadError?: string | null;
 };
 
+type FieldErrors = Record<string, string | null>;
+
+type LoadCarsOptions = {
+  silent?: boolean;
+};
+
 const emptyCarForm = () => ({
   name: "",
   description: "",
@@ -53,6 +59,7 @@ export class RentalCarsStore extends AvBaseStore {
   isSaving = false;
   error: string | null = null;
   addCarForm = emptyCarForm();
+  fieldErrors: FieldErrors = {};
 
   initializeCarsPage(serializedState?: string) {
     const state = this.parseInitialState(serializedState);
@@ -61,6 +68,7 @@ export class RentalCarsStore extends AvBaseStore {
     this.isLoading = false;
     this.isSaving = false;
     this.addCarForm = emptyCarForm();
+    this.fieldErrors = {};
   }
 
   parseInitialState(serializedState?: string): RentalCarsState {
@@ -79,12 +87,16 @@ export class RentalCarsStore extends AvBaseStore {
   openAddCarDrawer() {
     this.error = null;
     this.addCarForm = emptyCarForm();
+    this.clearFieldErrors();
+    this.setDrawerError(null);
     this.getAppDrawer()?.open("create");
   }
 
   closeAddCarDrawer() {
     this.getAppDrawer()?.close();
     this.addCarForm = emptyCarForm();
+    this.clearFieldErrors();
+    this.setDrawerError(null);
   }
 
   isAddCarDrawerOpen() {
@@ -105,8 +117,10 @@ export class RentalCarsStore extends AvBaseStore {
     }
   }
 
-  async loadCars() {
-    this.isLoading = true;
+  async loadCars(options: LoadCarsOptions = {}) {
+    if (!options.silent) {
+      this.isLoading = true;
+    }
     this.error = null;
     try {
       const result = await actions.listRentalCars({});
@@ -115,25 +129,28 @@ export class RentalCarsStore extends AvBaseStore {
       }
       this.cars = Array.isArray(result.data) ? (result.data as RentalCar[]) : [];
     } catch (error: any) {
-      this.error = error?.message || "Failed to load cars";
+      this.error = this.getSafeErrorMessage(error, "Failed to load cars");
     } finally {
-      this.isLoading = false;
+      if (!options.silent) {
+        this.isLoading = false;
+      }
     }
   }
 
   async submitAddCar() {
-    const name = this.addCarForm.name.trim();
-    if (!name) {
-      this.setDrawerError("Car name is required.");
+    if (this.isSaving) return;
+
+    this.setDrawerError(null);
+    if (!this.validateAddCarForm()) {
+      this.setDrawerError("Please fix the highlighted fields.");
       return;
     }
 
     this.isSaving = true;
-    this.setDrawerError(null);
 
     try {
       const result = await actions.createRentalCar({
-        name,
+        name: this.addCarForm.name.trim(),
         description: this.cleanString(this.addCarForm.description),
         baseDailyRate: this.toMoney(this.addCarForm.baseDailyRate),
         depositAmount: this.toMoney(this.addCarForm.depositAmount),
@@ -156,12 +173,68 @@ export class RentalCarsStore extends AvBaseStore {
       }
 
       this.closeAddCarDrawer();
-      await this.loadCars();
+      await this.loadCars({ silent: true });
     } catch (error: any) {
-      this.setDrawerError(error?.message || "Failed to add car");
+      this.setDrawerError(this.getSafeErrorMessage(error, "Failed to add car"));
     } finally {
       this.isSaving = false;
     }
+  }
+
+  validateAddCarForm() {
+    const errors: FieldErrors = {};
+    const requiredTextFields = [
+      ["name", "Name is required."],
+      ["plateNumber", "Plate number is required."],
+      ["make", "Make is required."],
+      ["model", "Model is required."],
+    ] as const;
+
+    for (const [field, message] of requiredTextFields) {
+      if (!String(this.addCarForm[field] ?? "").trim()) {
+        errors[field] = message;
+      }
+    }
+
+    const dailyRate = String(this.addCarForm.baseDailyRate ?? "").trim();
+    if (!dailyRate) {
+      errors.baseDailyRate = "Daily rate is required.";
+    } else if (!Number.isFinite(Number(dailyRate)) || Number(dailyRate) < 0) {
+      errors.baseDailyRate = "Daily rate must be 0 or greater.";
+    }
+
+    const currency = String(this.addCarForm.currencyCode ?? "").trim();
+    if (!currency) {
+      errors.currencyCode = "Currency is required.";
+    } else if (!/^[a-zA-Z]{3}$/.test(currency)) {
+      errors.currencyCode = "Use a 3-letter currency code.";
+    }
+
+    this.fieldErrors = errors;
+    return Object.keys(errors).length === 0;
+  }
+
+  getFieldError(field: string) {
+    return this.fieldErrors[field] ?? null;
+  }
+
+  clearFieldError(field: string) {
+    if (!this.fieldErrors[field]) return;
+    this.fieldErrors = {
+      ...this.fieldErrors,
+      [field]: null,
+    };
+    if (!Object.values(this.fieldErrors).some(Boolean)) {
+      this.setDrawerError(null);
+    }
+  }
+
+  clearFieldErrors() {
+    this.fieldErrors = {};
+  }
+
+  getSafeErrorMessage(error: any, fallback: string) {
+    return typeof error?.message === "string" && error.message.trim().length > 0 ? error.message : fallback;
   }
 
   cleanString(value: string) {
@@ -198,12 +271,12 @@ export class RentalCarsStore extends AvBaseStore {
   carSubtitle(car: RentalCar) {
     const details = car.carDetails ?? {};
     const parts = [details.make, details.model, details.year].filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : "Car details pending";
+    return parts.length > 0 ? parts.join(" ") : "Vehicle details not added";
   }
 
   carMeta(car: RentalCar) {
     const details = car.carDetails ?? {};
-    return [details.plateNumber, details.color, details.transmission].filter(Boolean).join(" · ") || "No extra details";
+    return [details.plateNumber || "Plate not added", details.color || "Color not added", details.transmission || "Transmission not added"].join(" · ");
   }
 }
 

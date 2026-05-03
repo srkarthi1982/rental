@@ -19,7 +19,6 @@ try {
   const result = await Astro.callAction(server.listRentalCars, {});
   cars = Array.isArray(result?.data) ? result.data : [];
 } catch (error) {
-  console.error("Error loading rental cars:", error);
   loadError = error instanceof Error ? error.message : String(error);
 }
 
@@ -69,7 +68,7 @@ const initialState = {
             <div class="av-auth-stack-sm">
               <AvEmptyState
                 headline="No cars yet"
-                description="Add your first rental car to start building the Rental workspace."
+                description="No cars yet. Add your first car to get started."
               />
               <div class="av-row-wrap">
                 <AvButton type="button" @click="openAddCarDrawer()">Add Car</AvButton>
@@ -115,10 +114,34 @@ const initialState = {
 
         <template x-if="isAddCarDrawerOpen()">
           <CreateDrawer title="Add Car" description="Create one car rental item for your business.">
-            <form id="add-car-form" class="av-auth-stack-md" @submit.prevent="submitAddCar()">
+            <form id="add-car-form" class="av-auth-stack-md" novalidate @submit.prevent="submitAddCar()">
               <div class="app-form-grid">
-                <AvInput label="Name" name="name" x-model="addCarForm.name" required placeholder="e.g. Toyota Corolla" />
-                <AvInput label="Currency" name="currencyCode" x-model="addCarForm.currencyCode" required maxlength="3" />
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Name"
+                    name="name"
+                    x-model="addCarForm.name"
+                    x-on:input="clearFieldError('name')"
+                    required
+                    placeholder="e.g. Toyota Corolla"
+                  />
+                  <template x-if="getFieldError('name')">
+                    <p class="app-field-error" x-text="getFieldError('name')"></p>
+                  </template>
+                </div>
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Currency"
+                    name="currencyCode"
+                    x-model="addCarForm.currencyCode"
+                    x-on:input="clearFieldError('currencyCode')"
+                    required
+                    maxlength="3"
+                  />
+                  <template x-if="getFieldError('currencyCode')">
+                    <p class="app-field-error" x-text="getFieldError('currencyCode')"></p>
+                  </template>
+                </div>
               </div>
 
               <AvTextarea
@@ -130,14 +153,61 @@ const initialState = {
               />
 
               <div class="app-form-grid">
-                <AvInput label="Daily rate" name="baseDailyRate" type="number" min="0" step="0.01" x-model="addCarForm.baseDailyRate" />
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Daily rate"
+                    name="baseDailyRate"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    x-model="addCarForm.baseDailyRate"
+                    x-on:input="clearFieldError('baseDailyRate')"
+                    required
+                  />
+                  <template x-if="getFieldError('baseDailyRate')">
+                    <p class="app-field-error" x-text="getFieldError('baseDailyRate')"></p>
+                  </template>
+                </div>
                 <AvInput label="Deposit" name="depositAmount" type="number" min="0" step="0.01" x-model="addCarForm.depositAmount" />
               </div>
 
               <div class="app-form-grid">
-                <AvInput label="Plate number" name="plateNumber" x-model="addCarForm.plateNumber" />
-                <AvInput label="Make" name="make" x-model="addCarForm.make" />
-                <AvInput label="Model" name="model" x-model="addCarForm.model" />
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Plate number"
+                    name="plateNumber"
+                    x-model="addCarForm.plateNumber"
+                    x-on:input="clearFieldError('plateNumber')"
+                    required
+                  />
+                  <template x-if="getFieldError('plateNumber')">
+                    <p class="app-field-error" x-text="getFieldError('plateNumber')"></p>
+                  </template>
+                </div>
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Make"
+                    name="make"
+                    x-model="addCarForm.make"
+                    x-on:input="clearFieldError('make')"
+                    required
+                  />
+                  <template x-if="getFieldError('make')">
+                    <p class="app-field-error" x-text="getFieldError('make')"></p>
+                  </template>
+                </div>
+                <div class="app-field-stack">
+                  <AvInput
+                    label="Model"
+                    name="model"
+                    x-model="addCarForm.model"
+                    x-on:input="clearFieldError('model')"
+                    required
+                  />
+                  <template x-if="getFieldError('model')">
+                    <p class="app-field-error" x-text="getFieldError('model')"></p>
+                  </template>
+                </div>
                 <AvInput label="Year" name="year" type="number" min="1900" step="1" x-model="addCarForm.year" />
               </div>
 
