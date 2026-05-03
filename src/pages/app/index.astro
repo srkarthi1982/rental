@@ -13,7 +13,9 @@ import CreateDrawer from "../../components/drawers/CreateDrawer.astro";
 import { server } from "../../actions";
 
 let cars: any[] = [];
+let customers: any[] = [];
 let loadError: string | null = null;
+let customerLoadError: string | null = null;
 
 try {
   const result = await Astro.callAction(server.listRentalCars, {});
@@ -22,13 +24,22 @@ try {
   loadError = error instanceof Error ? error.message : String(error);
 }
 
+try {
+  const result = await Astro.callAction(server.listRentalCustomers, {});
+  customers = Array.isArray(result?.data) ? result.data : [];
+} catch (error) {
+  customerLoadError = error instanceof Error ? error.message : String(error);
+}
+
 const initialState = {
   cars,
+  customers,
   loadError,
+  customerLoadError,
 };
 ---
 
-<AppShell title="Cars | Rental" description="Manage cars in the Rental workspace.">
+<AppShell title="Rental Workspace | Rental" description="Manage rental workspace records.">
   <section class="av-section">
     <AvContainer>
       <div
@@ -41,20 +52,48 @@ const initialState = {
           <div class="av-row-between app-row-top">
             <div class="av-auth-stack-xs">
               <p class="av-kicker">Rental Workspace</p>
-              <h1 class="av-section-title">Cars</h1>
-              <p class="av-text-soft">Manage the car rental fleet for your business workspace.</p>
+              <h1 class="av-section-title" x-text="activeViewTitle()">Cars</h1>
+              <p class="av-text-soft">Manage the rental records for your business workspace.</p>
             </div>
             <div class="av-row-wrap">
-              <AvButton type="button" @click="openAddCarDrawer()">Add Car</AvButton>
+              <AvButton type="button" @click="openActiveCreateDrawer()">
+                <span x-text="activeCreateLabel()">Add Car</span>
+              </AvButton>
             </div>
+          </div>
+
+          <div class="app-tabs" role="tablist" aria-label="Rental workspace sections">
+            <button
+              type="button"
+              class="app-tab"
+              :class="{ 'app-tab--active': isActiveView('cars') }"
+              role="tab"
+              :aria-selected="isActiveView('cars')"
+              @click="setActiveView('cars')"
+            >
+              Cars
+            </button>
+            <button
+              type="button"
+              class="app-tab"
+              :class="{ 'app-tab--active': isActiveView('customers') }"
+              role="tab"
+              :aria-selected="isActiveView('customers')"
+              @click="setActiveView('customers')"
+            >
+              Customers
+            </button>
           </div>
 
           <template x-if="error">
             <div class="av-alert av-alert-danger" role="status" x-text="error"></div>
           </template>
+          <template x-if="customerError && isActiveView('customers')">
+            <div class="av-alert av-alert-danger" role="status" x-text="customerError"></div>
+          </template>
         </AvCard>
 
-        <AvCard variant="soft" className="av-auth-stack-md">
+        <AvCard variant="soft" className="av-auth-stack-md" x-show="isActiveView('cars')">
           <div class="av-row-between app-row-top">
             <div class="av-auth-stack-xs">
               <p class="av-kicker">Cars</p>
@@ -109,6 +148,64 @@ const initialState = {
 
           <template x-if="isLoading">
             <p class="av-text-soft">Loading cars...</p>
+          </template>
+        </AvCard>
+
+        <AvCard variant="soft" className="av-auth-stack-md" x-show="isActiveView('customers')" x-cloak>
+          <div class="av-row-between app-row-top">
+            <div class="av-auth-stack-xs">
+              <p class="av-kicker">Customers</p>
+              <h2 class="av-card-heading">Customers</h2>
+              <p class="av-text-soft">Store customer records for your rental business workspace.</p>
+            </div>
+            <p class="av-text-soft"><span x-text="customers.length"></span> total</p>
+          </div>
+
+          <template x-if="!isLoadingCustomers && customers.length === 0">
+            <div class="av-auth-stack-sm">
+              <AvEmptyState
+                headline="No customers yet"
+                description="No customers yet. Add your first customer to get started."
+              />
+              <div class="av-row-wrap">
+                <AvButton type="button" @click="openAddCustomerDrawer()">Add Customer</AvButton>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="!isLoadingCustomers && customers.length > 0">
+            <div class="app-cars-grid">
+              <template x-for="customer in customers" :key="customer.id">
+                <AvCard variant="soft" className="av-card--fullheight">
+                  <div class="av-auth-stack-md">
+                    <div class="av-row-between app-row-top">
+                      <div class="av-auth-stack-xxs">
+                        <h3 class="av-card-heading app-car-title" x-text="customer.fullName"></h3>
+                        <p class="av-text-soft" x-text="customerSubtitle(customer)"></p>
+                      </div>
+                      <span class="av-badge av-badge-soft" x-text="customer.status || 'active'"></span>
+                    </div>
+
+                    <div class="app-signal-grid">
+                      <div class="app-signal">
+                        <span class="app-signal__label">Email</span>
+                        <strong x-text="customer.email || 'Email not added'"></strong>
+                      </div>
+                      <div class="app-signal">
+                        <span class="app-signal__label">Phone</span>
+                        <strong x-text="customer.phone || 'Phone not added'"></strong>
+                      </div>
+                    </div>
+
+                    <p class="av-text-soft" x-text="customerMeta(customer)"></p>
+                  </div>
+                </AvCard>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="isLoadingCustomers">
+            <p class="av-text-soft">Loading customers...</p>
           </template>
         </AvCard>
 
@@ -249,6 +346,57 @@ const initialState = {
               <AvButton variant="ghost" type="button" @click="closeAddCarDrawer()">Cancel</AvButton>
               <AvButton type="submit" form="add-car-form" :disabled="isSaving">
                 <span x-text="isSaving ? 'Saving...' : 'Save Car'"></span>
+              </AvButton>
+            </Fragment>
+          </CreateDrawer>
+        </template>
+
+        <template x-if="isAddCustomerDrawerOpen()">
+          <CreateDrawer title="Add Customer" description="Create one customer record for your business.">
+            <form id="add-customer-form" class="av-auth-stack-md" novalidate @submit.prevent="submitAddCustomer()">
+              <div class="app-field-stack">
+                <AvInput
+                  label="Full name"
+                  name="fullName"
+                  x-model="addCustomerForm.fullName"
+                  x-on:input="clearCustomerFieldError('fullName')"
+                  required
+                  placeholder="e.g. Priya Raman"
+                />
+                <template x-if="getCustomerFieldError('fullName')">
+                  <p class="app-field-error" x-text="getCustomerFieldError('fullName')"></p>
+                </template>
+              </div>
+
+              <div class="app-form-grid">
+                <AvInput label="Phone" name="phone" x-model="addCustomerForm.phone" />
+                <AvInput label="Email" name="email" type="email" x-model="addCustomerForm.email" />
+              </div>
+
+              <div class="app-form-grid">
+                <AvInput label="Document type" name="documentType" x-model="addCustomerForm.documentType" />
+                <AvInput label="Document number" name="documentNumber" x-model="addCustomerForm.documentNumber" />
+              </div>
+
+              <AvTextarea
+                label="Notes"
+                name="notes"
+                rows={4}
+                x-model="addCustomerForm.notes"
+                placeholder="Internal notes"
+              />
+            </form>
+
+            <Fragment slot="notice">
+              <template x-if="getCustomerDrawerError()">
+                <div class="av-alert av-alert-danger" role="status" x-text="getCustomerDrawerError()"></div>
+              </template>
+            </Fragment>
+
+            <Fragment slot="actions">
+              <AvButton variant="ghost" type="button" @click="closeAddCustomerDrawer()">Cancel</AvButton>
+              <AvButton type="submit" form="add-customer-form" :disabled="isSavingCustomer">
+                <span x-text="isSavingCustomer ? 'Saving...' : 'Save Customer'"></span>
               </AvButton>
             </Fragment>
           </CreateDrawer>

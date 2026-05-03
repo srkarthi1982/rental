@@ -23,9 +23,22 @@ type RentalCar = Record<string, any> & {
   } | null;
 };
 
+type RentalCustomer = Record<string, any> & {
+  id: string;
+  fullName: string;
+  phone?: string | null;
+  email?: string | null;
+  documentType?: string | null;
+  documentNumber?: string | null;
+  notes?: string | null;
+  status?: string | null;
+};
+
 type RentalCarsState = {
   cars?: RentalCar[];
+  customers?: RentalCustomer[];
   loadError?: string | null;
+  customerLoadError?: string | null;
 };
 
 type FieldErrors = Record<string, string | null>;
@@ -53,22 +66,48 @@ const emptyCarForm = () => ({
   registrationExpiryDate: "",
 });
 
+const emptyCustomerForm = () => ({
+  fullName: "",
+  phone: "",
+  email: "",
+  documentType: "",
+  documentNumber: "",
+  notes: "",
+});
+
 export class RentalCarsStore extends AvBaseStore {
+  activeView = "cars";
   cars: RentalCar[] = [];
+  customers: RentalCustomer[] = [];
   isLoading = false;
+  isLoadingCustomers = false;
   isSaving = false;
+  isSavingCustomer = false;
   error: string | null = null;
+  customerError: string | null = null;
   addCarForm = emptyCarForm();
+  addCustomerForm = emptyCustomerForm();
   fieldErrors: FieldErrors = {};
+  customerFieldErrors: FieldErrors = {};
 
   initializeCarsPage(serializedState?: string) {
     const state = this.parseInitialState(serializedState);
     this.cars = Array.isArray(state.cars) ? state.cars : [];
+    this.customers = Array.isArray(state.customers) ? state.customers : [];
     this.error = typeof state.loadError === "string" && state.loadError.length > 0 ? state.loadError : null;
+    this.customerError =
+      typeof state.customerLoadError === "string" && state.customerLoadError.length > 0
+        ? state.customerLoadError
+        : null;
+    this.activeView = "cars";
     this.isLoading = false;
+    this.isLoadingCustomers = false;
     this.isSaving = false;
+    this.isSavingCustomer = false;
     this.addCarForm = emptyCarForm();
+    this.addCustomerForm = emptyCustomerForm();
     this.fieldErrors = {};
+    this.customerFieldErrors = {};
   }
 
   parseInitialState(serializedState?: string): RentalCarsState {
@@ -82,6 +121,30 @@ export class RentalCarsStore extends AvBaseStore {
 
   getAppDrawer() {
     return window.Alpine?.store("appDrawer") as any;
+  }
+
+  setActiveView(view: string) {
+    this.activeView = view === "customers" ? "customers" : "cars";
+  }
+
+  isActiveView(view: string) {
+    return this.activeView === view;
+  }
+
+  activeViewTitle() {
+    return this.activeView === "customers" ? "Customers" : "Cars";
+  }
+
+  openActiveCreateDrawer() {
+    if (this.activeView === "customers") {
+      this.openAddCustomerDrawer();
+      return;
+    }
+    this.openAddCarDrawer();
+  }
+
+  activeCreateLabel() {
+    return this.activeView === "customers" ? "Add Customer" : "Add Car";
   }
 
   openAddCarDrawer() {
@@ -117,6 +180,39 @@ export class RentalCarsStore extends AvBaseStore {
     }
   }
 
+  openAddCustomerDrawer() {
+    this.customerError = null;
+    this.addCustomerForm = emptyCustomerForm();
+    this.clearCustomerFieldErrors();
+    this.setCustomerDrawerError(null);
+    this.getAppDrawer()?.open("create-customer");
+  }
+
+  closeAddCustomerDrawer() {
+    this.getAppDrawer()?.close();
+    this.addCustomerForm = emptyCustomerForm();
+    this.clearCustomerFieldErrors();
+    this.setCustomerDrawerError(null);
+  }
+
+  isAddCustomerDrawerOpen() {
+    return this.getAppDrawer()?.activeDrawer === "create-customer";
+  }
+
+  getCustomerDrawerError() {
+    return this.getAppDrawer()?.getError("create-customer") ?? null;
+  }
+
+  setCustomerDrawerError(message: string | null) {
+    const drawer = this.getAppDrawer();
+    if (!drawer) return;
+    if (message) {
+      drawer.setError(message, "create-customer");
+    } else {
+      drawer.resetError("create-customer");
+    }
+  }
+
   async loadCars(options: LoadCarsOptions = {}) {
     if (!options.silent) {
       this.isLoading = true;
@@ -133,6 +229,26 @@ export class RentalCarsStore extends AvBaseStore {
     } finally {
       if (!options.silent) {
         this.isLoading = false;
+      }
+    }
+  }
+
+  async loadCustomers(options: LoadCarsOptions = {}) {
+    if (!options.silent) {
+      this.isLoadingCustomers = true;
+    }
+    this.customerError = null;
+    try {
+      const result = await actions.listRentalCustomers({});
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to load customers");
+      }
+      this.customers = Array.isArray(result.data) ? (result.data as RentalCustomer[]) : [];
+    } catch (error: any) {
+      this.customerError = this.getSafeErrorMessage(error, "Failed to load customers");
+    } finally {
+      if (!options.silent) {
+        this.isLoadingCustomers = false;
       }
     }
   }
@@ -181,6 +297,40 @@ export class RentalCarsStore extends AvBaseStore {
     }
   }
 
+  async submitAddCustomer() {
+    if (this.isSavingCustomer) return;
+
+    this.setCustomerDrawerError(null);
+    if (!this.validateAddCustomerForm()) {
+      this.setCustomerDrawerError("Please fix the highlighted fields.");
+      return;
+    }
+
+    this.isSavingCustomer = true;
+
+    try {
+      const result = await actions.createRentalCustomer({
+        fullName: this.addCustomerForm.fullName.trim(),
+        phone: this.cleanString(this.addCustomerForm.phone),
+        email: this.cleanString(this.addCustomerForm.email),
+        documentType: this.cleanString(this.addCustomerForm.documentType),
+        documentNumber: this.cleanString(this.addCustomerForm.documentNumber),
+        notes: this.cleanString(this.addCustomerForm.notes),
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to add customer");
+      }
+
+      this.closeAddCustomerDrawer();
+      await this.loadCustomers({ silent: true });
+    } catch (error: any) {
+      this.setCustomerDrawerError(this.getSafeErrorMessage(error, "Failed to add customer"));
+    } finally {
+      this.isSavingCustomer = false;
+    }
+  }
+
   validateAddCarForm() {
     const errors: FieldErrors = {};
     const requiredTextFields = [
@@ -214,6 +364,17 @@ export class RentalCarsStore extends AvBaseStore {
     return Object.keys(errors).length === 0;
   }
 
+  validateAddCustomerForm() {
+    const errors: FieldErrors = {};
+
+    if (!String(this.addCustomerForm.fullName ?? "").trim()) {
+      errors.fullName = "Full name is required.";
+    }
+
+    this.customerFieldErrors = errors;
+    return Object.keys(errors).length === 0;
+  }
+
   getFieldError(field: string) {
     return this.fieldErrors[field] ?? null;
   }
@@ -231,6 +392,25 @@ export class RentalCarsStore extends AvBaseStore {
 
   clearFieldErrors() {
     this.fieldErrors = {};
+  }
+
+  getCustomerFieldError(field: string) {
+    return this.customerFieldErrors[field] ?? null;
+  }
+
+  clearCustomerFieldError(field: string) {
+    if (!this.customerFieldErrors[field]) return;
+    this.customerFieldErrors = {
+      ...this.customerFieldErrors,
+      [field]: null,
+    };
+    if (!Object.values(this.customerFieldErrors).some(Boolean)) {
+      this.setCustomerDrawerError(null);
+    }
+  }
+
+  clearCustomerFieldErrors() {
+    this.customerFieldErrors = {};
   }
 
   getSafeErrorMessage(error: any, fallback: string) {
@@ -277,6 +457,15 @@ export class RentalCarsStore extends AvBaseStore {
   carMeta(car: RentalCar) {
     const details = car.carDetails ?? {};
     return [details.plateNumber || "Plate not added", details.color || "Color not added", details.transmission || "Transmission not added"].join(" · ");
+  }
+
+  customerSubtitle(customer: RentalCustomer) {
+    return customer.phone || customer.email || "Contact details not added";
+  }
+
+  customerMeta(customer: RentalCustomer) {
+    const document = [customer.documentType, customer.documentNumber].filter(Boolean).join(" ");
+    return document || "Document details not added";
   }
 }
 

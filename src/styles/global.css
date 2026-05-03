@@ -32,6 +32,31 @@
   align-items: flex-start;
 }
 
+.app-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.app-tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--av-border, rgba(148, 163, 184, 0.24));
+  border-radius: 999px;
+  color: var(--av-text-muted);
+  cursor: pointer;
+  font: inherit;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.9rem;
+}
+
+.app-tab:hover,
+.app-tab--active {
+  background: var(--av-surface-muted, rgba(148, 163, 184, 0.1));
+  border-color: var(--av-border-strong, rgba(148, 163, 184, 0.42));
+  color: var(--av-text, #f8fafc);
+}
+
 .app-cars-grid {
   display: grid;
   gap: 1rem;

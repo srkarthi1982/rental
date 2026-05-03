@@ -24,7 +24,8 @@ This repo is the full Ansiversa Rental platform for `rental.ansiversa.com`.
 - One global Alpine store pattern is preserved.
 - Astro DB V1 foundation is in place for rental business workspaces, rental categories, generic rental items, car-specific item details, customers, bookings, service logs, and repair logs.
 - Rental Actions V1 foundation is in place for owner-scoped business bootstrap, category reads, cars, customers, bookings, service logs, and repair logs.
-- Rental Cars UI V1 is in place at `/app` with a cars list, empty state, and Add Car drawer only.
+- Rental Cars UI V1 is in place at `/app` with a cars list, empty state, validation, and Add Car drawer.
+- Rental Customers UI V1 is in place at `/app` with a customers list, empty state, validation, and Add Customer drawer.
 
 ---
 
@@ -41,13 +42,15 @@ This repo is the full Ansiversa Rental platform for `rental.ansiversa.com`.
 ## 3. Current Boundaries
 
 - Backend actions/helpers exist for the approved V1 foundation only.
-- No customer, booking, service log, repair log, dashboard, category selector, public listing, or public booking UI has been implemented yet.
-- Next phase is V1 car rental product flow on top of the approved DB foundation.
+- No booking, service log, repair log, dashboard, category selector, public listing, or public booking UI has been implemented yet.
+- Cars Module V1 is frozen unless a real issue is found.
+- Next phase is continuing V1 rental workflow on top of the approved DB foundation.
 
 ---
 
 ## 4. Task Log (Recent)
 
+- 2026-05-03 Added Rental Customers UI V1 as the second `/app` module: the workspace now has simple Cars/Customers tabs, keeps Cars as the default view, lists current-business customers, shows the approved empty state, and provides an Add Customer drawer with required full-name validation, guarded submit behavior, safe action failure messaging, and list refresh through the existing owner-scoped customer actions. Cars business logic was left untouched, and no bookings, service logs, repair logs, dashboard, category selector, public routes, or landing page changes were added. Verification: `npm run typecheck` passed (0 errors, inherited redirect-page hints only), `npm run build` passed, and local smoke check on `127.0.0.1:4322` confirmed protected `/app` renders, `createRentalCustomer` returns 200, and reloading `/app` includes the created smoke-test customer.
 - 2026-05-03 Applied focused Rental Cars UI V1 polish: Add Car drawer now has required-field validation with inline errors, guarded submit/double-click behavior, safe action failure messaging, silent list refresh after save, clearer empty state copy, and fallback list text for optional car details. Scope stayed limited to `/app`, the Add Car drawer, and the Cars Alpine store; no customers, bookings, service logs, repair logs, dashboard, category selector, public routes, or landing changes were added. Verification: `npm run typecheck` passed (0 errors, inherited redirect-page hints only), `npm run build` passed, and local smoke check on `127.0.0.1:4322` confirmed protected `/app` renders, `createRentalCar` returns 200, and reloading `/app` includes the created smoke-test car.
 - 2026-05-03 Implemented Rental UI V1 for Cars module only: `/app` now shows the Cars workspace with current-user cars, empty state, Add Car button, and an Ansiversa drawer-standard Add Car form wired to `createRentalCar` and list refresh through a dedicated Alpine store. No customers, bookings, service logs, repair logs, dashboard, category selector, public routes, or landing changes were added. Verification: `npm run typecheck` passed (0 errors, inherited redirect-page hints only), `npm run build` passed, and local smoke check on `127.0.0.1:4322` confirmed protected `/app` renders, `createRentalCar` returns 200, and reloading `/app` includes the created smoke-test car; no server-side console errors appeared during the smoke.
 - 2026-05-03 Added Rental Actions V1 foundation: backend-only Astro actions/helpers for owner-scoped rental business bootstrap (`User -> RentalBusiness -> Rental data`), category reads, car item/detail creation and reads, customer creation and reads, booking creation and reads, and service/repair log creation and listing. Ownership checks now validate all client-supplied item/customer/booking/log access through the current user's rental business. No UI, landing page changes, public listing, or public booking flow were added. Verification: `npm run typecheck` passed (0 errors, inherited redirect-page hints only) and `npm run build` passed.
