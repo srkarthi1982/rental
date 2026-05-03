@@ -7,11 +7,10 @@ equipment, and future rental categories.
 ## Current status
 
 Platform shell scaffolded from the approved Ansiversa app baseline, with the
-Rental DB V1 foundation in place.
+Rental DB V1 foundation, backend action foundation, and Cars UI V1 in place.
 
-No rental UI forms, public listing, public booking flow, or operator workspace
-screens are implemented yet. The next approved phase is the V1 car rental
-product flow.
+No customer, booking, service log, repair log, dashboard, category selector,
+public listing, or public booking UI is implemented yet.
 
 ## Architecture
 
@@ -25,6 +24,7 @@ product flow.
   items, car details, customers, bookings, service logs, and repair logs
 - Backend action foundation for owner-scoped business, car, customer, booking,
   service, and repair workflows
+- Cars UI V1 at `/app` with list, empty state, and Add Car drawer
 
 ## Quick start
 

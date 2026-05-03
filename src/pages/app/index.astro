@@ -1,48 +1,188 @@
 ---
-import { AvButton, AvCard, AvContainer } from "@ansiversa/components";
+import {
+  AvButton,
+  AvCard,
+  AvContainer,
+  AvEmptyState,
+  AvInput,
+  AvSelect,
+  AvTextarea,
+} from "@ansiversa/components";
 import AppShell from "../../layouts/AppShell.astro";
-import { APP_META } from "../../app.meta";
+import CreateDrawer from "../../components/drawers/CreateDrawer.astro";
+import { server } from "../../actions";
 
-const title = `${APP_META.name} App`;
-const description = "Protected workspace entry for the Rental platform.";
+let cars: any[] = [];
+let loadError: string | null = null;
 
-const nextSteps = [
-  "Add category selection for car, home, equipment, and future rental verticals.",
-  "Design the Rental database schema before adding business logic.",
-  "Build the V1 car rental flow while keeping the platform architecture generic.",
-];
+try {
+  const result = await Astro.callAction(server.listRentalCars, {});
+  cars = Array.isArray(result?.data) ? result.data : [];
+} catch (error) {
+  console.error("Error loading rental cars:", error);
+  loadError = error instanceof Error ? error.message : String(error);
+}
+
+const initialState = {
+  cars,
+  loadError,
+};
 ---
 
-<AppShell title={title} description={description}>
+<AppShell title="Cars | Rental" description="Manage cars in the Rental workspace.">
   <section class="av-section">
     <AvContainer>
-      <div class="av-auth-stack-lg">
-        <AvCard className="av-auth-card">
-          <div class="av-auth-stack-md">
+      <div
+        class="av-auth-stack-lg"
+        x-data="$store.rentalCars"
+        x-init="initializeCarsPage($el.dataset.initial)"
+        data-initial={JSON.stringify(initialState)}
+      >
+        <AvCard className="av-auth-stack-md">
+          <div class="av-row-between app-row-top">
             <div class="av-auth-stack-xs">
               <p class="av-kicker">Rental Workspace</p>
-              <h1 class="av-section-title">{APP_META.name}</h1>
-              <p class="av-text-soft">
-                This is the protected entry point for the Rental platform. Authenticated users will
-                choose a rental category here before continuing into the approved product flow.
-              </p>
+              <h1 class="av-section-title">Cars</h1>
+              <p class="av-text-soft">Manage the car rental fleet for your business workspace.</p>
             </div>
-
             <div class="av-row-wrap">
-              <AvButton href="/">Back to landing</AvButton>
-              <AvButton href="/signout" variant="ghost">Sign out</AvButton>
+              <AvButton type="button" @click="openAddCarDrawer()">Add Car</AvButton>
             </div>
           </div>
+
+          <template x-if="error">
+            <div class="av-alert av-alert-danger" role="status" x-text="error"></div>
+          </template>
         </AvCard>
 
-        <div class="grid gap-4 md:grid-cols-3">
-          {nextSteps.map((step) => (
-            <AvCard variant="soft" className="av-auth-stack-sm">
-              <h2 class="av-card-heading">Next phase</h2>
-              <p class="av-text-soft">{step}</p>
-            </AvCard>
-          ))}
-        </div>
+        <AvCard variant="soft" className="av-auth-stack-md">
+          <div class="av-row-between app-row-top">
+            <div class="av-auth-stack-xs">
+              <p class="av-kicker">Cars</p>
+              <h2 class="av-card-heading">Your cars</h2>
+              <p class="av-text-soft">Each car is stored as a generic rental item with car details kept separately.</p>
+            </div>
+            <p class="av-text-soft"><span x-text="cars.length"></span> total</p>
+          </div>
+
+          <template x-if="!isLoading && cars.length === 0">
+            <div class="av-auth-stack-sm">
+              <AvEmptyState
+                headline="No cars yet"
+                description="Add your first rental car to start building the Rental workspace."
+              />
+              <div class="av-row-wrap">
+                <AvButton type="button" @click="openAddCarDrawer()">Add Car</AvButton>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="!isLoading && cars.length > 0">
+            <div class="app-cars-grid">
+              <template x-for="car in cars" :key="car.id">
+                <AvCard variant="soft" className="av-card--fullheight">
+                  <div class="av-auth-stack-md">
+                    <div class="av-row-between app-row-top">
+                      <div class="av-auth-stack-xxs">
+                        <h3 class="av-card-heading app-car-title" x-text="car.name"></h3>
+                        <p class="av-text-soft" x-text="carSubtitle(car)"></p>
+                      </div>
+                      <span class="av-badge av-badge-soft" x-text="car.availabilityStatus || 'available'"></span>
+                    </div>
+
+                    <div class="app-signal-grid">
+                      <div class="app-signal">
+                        <span class="app-signal__label">Daily rate</span>
+                        <strong x-text="formatMoney(car.baseDailyRate, car.currencyCode)"></strong>
+                      </div>
+                      <div class="app-signal">
+                        <span class="app-signal__label">Deposit</span>
+                        <strong x-text="formatMoney(car.depositAmount, car.currencyCode)"></strong>
+                      </div>
+                    </div>
+
+                    <p class="av-text-soft" x-text="carMeta(car)"></p>
+                  </div>
+                </AvCard>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="isLoading">
+            <p class="av-text-soft">Loading cars...</p>
+          </template>
+        </AvCard>
+
+        <template x-if="isAddCarDrawerOpen()">
+          <CreateDrawer title="Add Car" description="Create one car rental item for your business.">
+            <form id="add-car-form" class="av-auth-stack-md" @submit.prevent="submitAddCar()">
+              <div class="app-form-grid">
+                <AvInput label="Name" name="name" x-model="addCarForm.name" required placeholder="e.g. Toyota Corolla" />
+                <AvInput label="Currency" name="currencyCode" x-model="addCarForm.currencyCode" required maxlength="3" />
+              </div>
+
+              <AvTextarea
+                label="Description"
+                name="description"
+                rows={3}
+                x-model="addCarForm.description"
+                placeholder="Short internal description"
+              />
+
+              <div class="app-form-grid">
+                <AvInput label="Daily rate" name="baseDailyRate" type="number" min="0" step="0.01" x-model="addCarForm.baseDailyRate" />
+                <AvInput label="Deposit" name="depositAmount" type="number" min="0" step="0.01" x-model="addCarForm.depositAmount" />
+              </div>
+
+              <div class="app-form-grid">
+                <AvInput label="Plate number" name="plateNumber" x-model="addCarForm.plateNumber" />
+                <AvInput label="Make" name="make" x-model="addCarForm.make" />
+                <AvInput label="Model" name="model" x-model="addCarForm.model" />
+                <AvInput label="Year" name="year" type="number" min="1900" step="1" x-model="addCarForm.year" />
+              </div>
+
+              <div class="app-form-grid">
+                <AvInput label="Color" name="color" x-model="addCarForm.color" />
+                <AvInput label="Fuel type" name="fuelType" x-model="addCarForm.fuelType" />
+                <AvSelect label="Transmission" name="transmission" x-model="addCarForm.transmission">
+                  <option value="">Select</option>
+                  <option value="automatic">Automatic</option>
+                  <option value="manual">Manual</option>
+                </AvSelect>
+                <AvInput label="Seats" name="seats" type="number" min="1" step="1" x-model="addCarForm.seats" />
+              </div>
+
+              <div class="app-form-grid">
+                <AvInput label="Odometer km" name="odometerKm" type="number" min="0" step="1" x-model="addCarForm.odometerKm" />
+                <AvInput
+                  label="Insurance expiry"
+                  name="insuranceExpiryDate"
+                  type="date"
+                  x-model="addCarForm.insuranceExpiryDate"
+                />
+                <AvInput
+                  label="Registration expiry"
+                  name="registrationExpiryDate"
+                  type="date"
+                  x-model="addCarForm.registrationExpiryDate"
+                />
+              </div>
+            </form>
+
+            <Fragment slot="notice">
+              <template x-if="getDrawerError()">
+                <div class="av-alert av-alert-danger" role="status" x-text="getDrawerError()"></div>
+              </template>
+            </Fragment>
+
+            <Fragment slot="actions">
+              <AvButton variant="ghost" type="button" @click="closeAddCarDrawer()">Cancel</AvButton>
+              <AvButton type="submit" form="add-car-form" :disabled="isSaving">
+                <span x-text="isSaving ? 'Saving...' : 'Save Car'"></span>
+              </AvButton>
+            </Fragment>
+          </CreateDrawer>
+        </template>
       </div>
     </AvContainer>
   </section>
