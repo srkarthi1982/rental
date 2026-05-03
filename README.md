@@ -9,8 +9,9 @@ equipment, and future rental categories.
 Platform shell scaffolded from the approved Ansiversa app baseline, with the
 Rental DB V1 foundation in place.
 
-No rental business logic, UI forms, actions, or booking workflow are implemented
-yet. The next approved phase is the V1 car rental product flow.
+No rental UI forms, public listing, public booking flow, or operator workspace
+screens are implemented yet. The next approved phase is the V1 car rental
+product flow.
 
 ## Architecture
 
@@ -22,6 +23,8 @@ yet. The next approved phase is the V1 car rental product flow.
 - Astro Actions ready for SSR-first product workflows
 - Astro DB foundation for business workspaces, rental categories, generic rental
   items, car details, customers, bookings, service logs, and repair logs
+- Backend action foundation for owner-scoped business, car, customer, booking,
+  service, and repair workflows
 
 ## Quick start
 
